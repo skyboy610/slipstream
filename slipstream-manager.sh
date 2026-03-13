@@ -17,21 +17,22 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # ─── COLOR PALETTE ──────────────────────────────────────────────────────────
-PU='\033[38;5;141m'    # Purple  (UI / normal text)
-TE='\033[38;5;44m'     # Teal    (UI / normal text)
-GR='\033[0;32m'        # Green   (success messages ONLY)
-YL='\033[1;33m'        # Yellow  (warning messages ONLY)
-RD='\033[0;31m'        # Red     (error messages ONLY)
+PU='\033[38;5;99m'     # Purple  darker
+TE='\033[38;5;44m'     # Teal
+GR='\033[0;32m'        # Green   (success ONLY)
+YL='\033[1;33m'        # Yellow  (warning ONLY)
+RD='\033[0;31m'        # Red     (error ONLY)
+PK='\033[38;5;213m'    # Pink    (questions ONLY)
 BD='\033[1m'           # Bold
 NC='\033[0m'           # Reset
 
 # ─── MESSAGE HELPERS ────────────────────────────────────────────────────────
-OK()  { echo -e "${GR}[✓]${NC} $*"; }
-WN()  { echo -e "${YL}[⚠]${NC} $*"; }
-ER()  { echo -e "${RD}[✗]${NC} $*" >&2; }
+OK()  { echo -e "${GR}[✓] $*${NC}"; }
+WN()  { echo -e "${YL}[⚠] $*${NC}"; }
+ER()  { echo -e "${RD}[✗] $*${NC}" >&2; }
 PL()  { echo -e "${PU}$*${NC}"; }
 TL()  { echo -e "${TE}$*${NC}"; }
-ASK() { echo -ne "${PU}[?]${NC} ${TE}$*${NC} "; }
+ASK() { echo -ne "${PK}$*${NC} "; }
 
 # ─── GLOBAL VARIABLES ───────────────────────────────────────────────────────
 SCRIPT_VER="2.1.0"
@@ -61,59 +62,45 @@ show_banner() {
     local COLS
     COLS=$(tput cols 2>/dev/null || echo 80)
 
-    # Full-width top border alternating colors
-    local border=""
-    local i
+    # Full-width block border
+    local border="" i
     for (( i=0; i<COLS; i++ )); do
-        if [[ $(( i % 2 )) -eq 0 ]]; then
-            border+="${PU}═${NC}"
-        else
-            border+="${TE}═${NC}"
-        fi
+        if [[ $(( i % 2 )) -eq 0 ]]; then border+="${PU}█${NC}"; else border+="${TE}█${NC}"; fi
     done
-
     echo -e "$border"
 
-    local B1="░█▀▀░█░░░▀█▀░█▀█░░░▀█▀░█░█░█▀█░█▀█░█▀▀░█░░"
-    local B2="░▀▀█░█░░░░█░░█▀▀░░░░█░░█░█░█░█░█░█░█▀▀░█░░"
-    local B3="░▀▀▀░▀▀▀░▀▀▀░▀░░░░░░▀░░▀▀▀░▀░▀░▀░▀░▀▀▀░▀▀▀"
-
-    # Color each character alternating PU/TE via python3 (UTF-8 safe)
-    if command -v python3 &>/dev/null; then
-        python3 - "$B1" "$B2" "$B3" "$COLS" << 'PYEOF'
-import sys, os
-PU = '\033[38;5;141m'
-TE = '\033[38;5;44m'
-NC = '\033[0m'
-lines = sys.argv[1:4]
-cols = int(sys.argv[4])
-for line in lines:
+    # Inline python to render full-width banner
+    python3 /dev/stdin "$COLS" "$SCRIPT_VER" << 'PYEOF'
+import sys
+cols = int(sys.argv[1])
+ver  = sys.argv[2]
+PU = "\033[38;5;99m"
+TE = "\033[38;5;44m"
+NC = "\033[0m"
+lines = [
+    "\u2591\u2588\u2580\u2580\u2591\u2588\u2591\u2591\u2591\u2580\u2588\u2580\u2591\u2588\u2580\u2588\u2591\u2591\u2591\u2580\u2588\u2580\u2591\u2588\u2591\u2588\u2591\u2588\u2580\u2588\u2591\u2588\u2580\u2588\u2591\u2588\u2580\u2580\u2591\u2588\u2591\u2591",
+    "\u2591\u2580\u2580\u2588\u2591\u2588\u2591\u2591\u2591\u2591\u2588\u2591\u2591\u2588\u2580\u2580\u2591\u2591\u2591\u2591\u2588\u2591\u2591\u2588\u2591\u2588\u2591\u2588\u2591\u2588\u2591\u2588\u2591\u2588\u2591\u2588\u2580\u2580\u2591\u2588\u2591\u2591",
+    "\u2591\u2580\u2580\u2580\u2591\u2580\u2580\u2580\u2591\u2580\u2580\u2580\u2591\u2580\u2591\u2591\u2591\u2591\u2591\u2591\u2580\u2591\u2591\u2580\u2580\u2580\u2591\u2580\u2591\u2580\u2591\u2580\u2591\u2580\u2591\u2580\u2580\u2580\u2591\u2580\u2580\u2580",
+]
+raw_w = 42
+for li, line in enumerate(lines):
     colored = ""
-    for idx, ch in enumerate(line):
-        colored += (PU if idx % 2 == 0 else TE) + ch + NC
-    pad = max(0, (cols - len(line)) // 2)
-    print(" " * pad + colored)
+    for ci, ch in enumerate(line):
+        colored += (PU if ci % 2 == 0 else TE) + ch + NC
+    pad   = max(0, (cols - raw_w) // 2)
+    right = max(0, cols - raw_w - pad)
+    lf = (PU if li % 2 == 0 else TE) + "\u2591" * pad + NC
+    rf = (TE if li % 2 == 0 else PU) + "\u2591" * right + NC
+    print(lf + colored + rf)
+sub = f"  DNS Tunnel v{ver} \u2502 Anti-DPI \u2502 Multi-DNS \u2502 Auto-Failover  "
+lp  = max(0, (cols - len(sub)) // 2)
+rp  = max(0, cols - len(sub) - lp)
+print(PU + "\u2588" * lp + TE + sub + PU + "\u2588" * rp + NC)
 PYEOF
-    else
-        # Fallback: alternate lines
-        local pad=$(( (COLS - 46) / 2 ))
-        local sp
-        sp=$(printf '%*s' "$pad" '')
-        echo -e "${sp}${PU}${B1}${NC}"
-        echo -e "${sp}${TE}${B2}${NC}"
-        echo -e "${sp}${PU}${B3}${NC}"
-    fi
-
-    # Center subtitle
-    local sub="DNS Tunnel Manager v${SCRIPT_VER}  |  Anti-DPI  |  Multi-DNS  |  Auto-Failover"
-    local sublen=${#sub}
-    local subpad=$(( (COLS - sublen) / 2 ))
-    printf '%*s' "$subpad" ''
-    echo -e "${TE}${sub}${NC}"
-
     echo -e "$border"
     echo ""
 }
+
 
 # ─── SPINNER / LOADING ──────────────────────────────────────────────────────
 _SPIN_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
@@ -165,9 +152,19 @@ progress_bar() {
 sep_line() {
     local COLS
     COLS=$(tput cols 2>/dev/null || echo 80)
-    local line=""
+    local line="" i
     for (( i=0; i<COLS; i++ )); do
         if [[ $(( i % 2 )) -eq 0 ]]; then line+="${PU}─${NC}"; else line+="${TE}─${NC}"; fi
+    done
+    echo -e "$line"
+}
+
+# Full-width solid separator
+solid_line() {
+    local COLS; COLS=$(tput cols 2>/dev/null || echo 80)
+    local line="" i
+    for (( i=0; i<COLS; i++ )); do
+        if [[ $(( i % 2 )) -eq 0 ]]; then line+="${PU}━${NC}"; else line+="${TE}━${NC}"; fi
     done
     echo -e "$line"
 }
@@ -288,6 +285,22 @@ build_from_source() {
     fi
     cd "$BUILD_DIR"
     git submodule update --init --recursive -q
+
+    # Apply patches from the deploy repo (ipv6_fallback, picoquic_utils)
+    local patch_base
+    patch_base="$(dirname "$(readlink -f "$0")")/patches"
+    if [[ -d "$patch_base" ]]; then
+        for pfile in "${patch_base}/ipv6_fallback.patch" "${patch_base}/picoquic_utils.h.patch"; do
+            if [[ -f "$pfile" ]]; then
+                git apply "$pfile" &>/dev/null || true
+            fi
+        done
+    fi
+    # Also try patches embedded next to the script (if user has the zip)
+    for pfile in /tmp/slipstream-patches/ipv6_fallback.patch \
+                 /tmp/slipstream-patches/picoquic_utils.h.patch; do
+        [[ -f "$pfile" ]] && git apply "$pfile" &>/dev/null || true
+    done
 
     [[ -f "${BUILD_DIR}/scripts/build_picoquic.sh" ]] && \
         bash "${BUILD_DIR}/scripts/build_picoquic.sh" &>/dev/null
@@ -835,67 +848,80 @@ get_user_input() {
     box_start "Server Configuration"
     echo ""
 
-    # NS Record Hostname
+    # Auto-detect public IP silently
+    local detected_ip
+    detected_ip=$(curl -fsSL --max-time 6 https://ipv4.icanhazip.com 2>/dev/null | tr -d '[:space:]' ||                   curl -fsSL --max-time 6 https://api.ipify.org 2>/dev/null | tr -d '[:space:]' || true)
+
+    TL "  ┌─ DNS Record Setup ──────────────────────────────────────────────"
+    TL "  │  Add these records in your domain registrar panel:"
+    TL "  │"
+    if [[ -n "$detected_ip" ]]; then
+        TL "  │  A   record:  ns.yourdomain.com  →  ${detected_ip}"
+    else
+        TL "  │  A   record:  ns.yourdomain.com  →  <YOUR_SERVER_IP>"
+    fi
+    TL "  │  NS  record:  s.yourdomain.com   →  ns.yourdomain.com"
+    TL "  └─────────────────────────────────────────────────────────────────"
+    echo ""
+
+    # A Record Host
     while true; do
         if [[ -n "${NS_HOST:-}" ]]; then
-            ASK "NS Record Hostname (e.g. ns.example.com) [${NS_HOST}]: "
+            ASK "A Record Host (e.g. ns.example.com) [${NS_HOST}]:"
         else
-            ASK "NS Record Hostname (e.g. ns.example.com): "
+            ASK "A Record Host (e.g. ns.example.com):"
         fi
         read -r input_ns
-        input_ns="${input_ns:-$NS_HOST}"
-        if [[ -n "$input_ns" ]]; then
-            NS_HOST="$input_ns"; break
-        fi
-        WN "NS Record Hostname is required."
+        input_ns="${input_ns:-${NS_HOST:-}}"
+        if [[ -n "$input_ns" ]]; then NS_HOST="$input_ns"; break; fi
+        WN "Required."
     done
 
-    # Tunnel subdomain
+    # NS Record Host
     while true; do
         if [[ -n "${DOMAIN:-}" ]]; then
-            ASK "Tunnel Subdomain (NS-delegated, e.g. s.example.com) [${DOMAIN}]: "
+            ASK "NS Record Host (e.g. s.example.com) [${DOMAIN}]:"
         else
-            ASK "Tunnel Subdomain (NS-delegated, e.g. s.example.com): "
+            ASK "NS Record Host (e.g. s.example.com):"
         fi
         read -r input_dom
-        input_dom="${input_dom:-$DOMAIN}"
-        if [[ -n "$input_dom" ]]; then
-            DOMAIN="$input_dom"; break
-        fi
-        WN "Tunnel subdomain is required."
+        input_dom="${input_dom:-${DOMAIN:-}}"
+        if [[ -n "$input_dom" ]]; then DOMAIN="$input_dom"; break; fi
+        WN "Required."
     done
 
-    # Server public IP
-    local detected_ip
-    detected_ip=$(curl -fsSL --max-time 5 https://ipv4.icanhazip.com 2>/dev/null | tr -d '[:space:]' || true)
-    if [[ -n "${SERVER_IP:-}" ]]; then
-        ASK "Server Public IP [${SERVER_IP}]: "
-    elif [[ -n "$detected_ip" ]]; then
-        ASK "Server Public IP [${detected_ip}]: "
+    # Server IP - auto-detected
+    if [[ -n "$detected_ip" ]]; then
+        OK "Server IP detected: ${detected_ip}"
+        ASK "Server IP [${detected_ip}]:"
+        read -r input_ip
+        SERVER_IP="${input_ip:-$detected_ip}"
     else
-        ASK "Server Public IP: "
+        ASK "Server Public IP:"
+        read -r input_ip
+        SERVER_IP="${input_ip:-${SERVER_IP:-}}"
     fi
-    read -r input_ip
-    SERVER_IP="${input_ip:-${SERVER_IP:-$detected_ip}}"
 
     # Tunnel port
-    ASK "Tunnel Listening Port [${TUNNEL_PORT:-5300}]: "
+    ASK "Tunnel Port [${TUNNEL_PORT:-5300}]:"
     read -r input_port
     TUNNEL_PORT="${input_port:-${TUNNEL_PORT:-5300}}"
 
     echo ""
     sep_line
     PL "  DNS Resolver Pool Setup"
-    TL "  Enter the DNS resolvers to use. Press Enter on empty line when done."
-    TL "  Format: IP or IP:PORT  (default port is 53)"
-    TL "  Examples: 1.1.1.1   |   8.8.8.8:53   |   9.9.9.9"
-    sep_line
+    TL "  ┌─ DNS Resolver Pool ─────────────────────────────────────────────"
+    TL "  │  Enter your DNS resolvers one by one."
+    TL "  │  Format:  IP  or  IP:PORT   (default port: 53)"
+    TL "  │  Example: 1.1.1.1  /  8.8.8.8:53  /  9.9.9.9"
+    TL "  │  Press Enter with no input when done."
+    TL "  └─────────────────────────────────────────────────────────────────"
 
     dns_pool_init
 
     local idx=1
     while true; do
-        ASK "DNS Resolver #${idx} (empty = done): "
+        ASK "DNS #${idx} (Enter = done):"
         read -r dns_input
         [[ -z "$dns_input" ]] && break
         dns_pool_add "$dns_input"
@@ -916,7 +942,12 @@ get_user_input() {
 
     echo ""
     TL "  Total resolvers in pool: ${pool_count}"
-    ASK "How many resolvers to use simultaneously? [3]: "
+    echo ""
+    TL "  ┌─ DNS Active Count ──────────────────────────────────────────────"
+    TL "  │  Active resolvers run simultaneously. Extras stay as backup."
+    TL "  │  If one fails, a backup takes its place automatically."
+    TL "  └─────────────────────────────────────────────────────────────────"
+    ASK "How many DNS resolvers active at once? [3]:"
     read -r input_n
     ACTIVE_DNS_COUNT="${input_n:-3}"
     ACTIVE_DNS_COUNT=$(( ACTIVE_DNS_COUNT + 0 ))
@@ -1528,9 +1559,18 @@ install_self() {
     if [[ "$src" != "$SCRIPT_PATH" ]]; then
         cp "$src" "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
-        OK "Script installed to ${SCRIPT_PATH}"
-        TL "Run 'slipstream-manager' from anywhere to open the menu."
     fi
+    # Always ensure shortcut 'slip' exists
+    if [[ ! -f /usr/local/bin/slip ]]; then
+        ln -sf "$SCRIPT_PATH" /usr/local/bin/slip 2>/dev/null || true
+        OK "Shortcut created: type  slip  to open menu"
+    fi
+    # Add to /etc/profile.d so it shows in all shells
+    cat > /etc/profile.d/slipstream.sh << 'PROFEOF'
+# Slipstream DNS Tunnel Manager shortcut
+alias slip='slipstream-manager'
+PROFEOF
+    chmod 644 /etc/profile.d/slipstream.sh 2>/dev/null || true
 }
 
 # ─── MAIN MENU ─────────────────────────────────────────────────────────────────
